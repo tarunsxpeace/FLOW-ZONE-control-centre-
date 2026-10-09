@@ -8,7 +8,7 @@
 ![ESP32](https://img.shields.io/badge/Hardware-ESP32%20%2B%20MQ135-red?style=flat-square&logo=espressif)
 ![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)
 
----
+---THE APP https://share.gemini.google/7gLYMApptCYg
 
 ## 📌 Problem Statement
 High concentrations of $\text{CO}_2$ (>800 ppm) in enclosed campus study spaces cause drowsiness, reduced cognitive function, and headaches. Coupled with fluctuating ambient noise levels, students frequently experience rapid burnout and poor focus without realizing environmental factors are responsible.
