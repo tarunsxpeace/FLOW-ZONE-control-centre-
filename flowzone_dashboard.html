@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowZone Control Center</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & React DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Compiler for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Recharts -->
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-slate-950">
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo } = React;
+    const { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } = Recharts;
+
+    const INITIAL_ROOMS = [
+      // A BLOCK
+      { room_id: "A-101", building: "A BLOCK", co2_ppm: 480, noise_db: 42, occupancy_count: 12, max_occupancy: 30, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "A-102", building: "A BLOCK", co2_ppm: 640, noise_db: 58, occupancy_count: 22, max_occupancy: 30, hvac_status: "Moderate Airflow", lighting_mode: "Daylight (4500K)", room_status: "Moderate Activity" },
+      { room_id: "A-103", building: "A BLOCK", co2_ppm: 890, noise_db: 71, occupancy_count: 28, max_occupancy: 30, hvac_status: "Boosted Fresh Air", lighting_mode: "Focus-Cool (6000K)", room_status: "Needs Ventilation / High Activity" },
+      { room_id: "A-104", building: "A BLOCK", co2_ppm: 510, noise_db: 45, occupancy_count: 15, max_occupancy: 25, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+
+      // B BLOCK
+      { room_id: "B-201", building: "B BLOCK", co2_ppm: 420, noise_db: 38, occupancy_count: 6, max_occupancy: 20, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "B-202", building: "B BLOCK", co2_ppm: 580, noise_db: 52, occupancy_count: 14, max_occupancy: 25, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "B-203", building: "B BLOCK", co2_ppm: 740, noise_db: 62, occupancy_count: 21, max_occupancy: 25, hvac_status: "Moderate Airflow", lighting_mode: "Daylight (4500K)", room_status: "Moderate Activity" },
+      { room_id: "B-204", building: "B BLOCK", co2_ppm: 490, noise_db: 46, occupancy_count: 10, max_occupancy: 20, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+
+      // C BLOCK
+      { room_id: "C-301", building: "C BLOCK", co2_ppm: 410, noise_db: 36, occupancy_count: 4, max_occupancy: 20, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "C-302", building: "C BLOCK", co2_ppm: 940, noise_db: 76, occupancy_count: 32, max_occupancy: 35, hvac_status: "Boosted Fresh Air", lighting_mode: "Focus-Cool (6000K)", room_status: "Needs Ventilation / High Activity" },
+      { room_id: "C-303", building: "C BLOCK", co2_ppm: 530, noise_db: 49, occupancy_count: 16, max_occupancy: 30, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "C-304", building: "C BLOCK", co2_ppm: 470, noise_db: 41, occupancy_count: 8, max_occupancy: 25, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+
+      // LIBRARY
+      { room_id: "Reading-Room-1", building: "LIBRARY", co2_ppm: 670, noise_db: 38, occupancy_count: 38, max_occupancy: 50, hvac_status: "Moderate Airflow", lighting_mode: "Daylight (4500K)", room_status: "Moderate Activity" },
+      { room_id: "Reading-Room-2", building: "LIBRARY", co2_ppm: 520, noise_db: 32, occupancy_count: 22, max_occupancy: 40, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "Silent-Zone", building: "LIBRARY", co2_ppm: 430, noise_db: 29, occupancy_count: 18, max_occupancy: 30, hvac_status: "Eco-Mode", lighting_mode: "Standard (4000K)", room_status: "Optimal" },
+      { room_id: "Group-Study-A", building: "LIBRARY", co2_ppm: 820, noise_db: 67, occupancy_count: 14, max_occupancy: 15, hvac_status: "Boosted Fresh Air", lighting_mode: "Focus-Cool (6000K)", room_status: "Needs Ventilation / High Activity" }
+    ];
+
+    const evaluateCondition = (co2, noise) => {
+      if (co2 > 800 || noise > 65) {
+        return {
+          status: "Needs Ventilation / High Activity",
+          badgeColor: "bg-rose-500/20 text-rose-400 border-rose-500/40",
+          hvac: "Boosted Fresh Air",
+          lighting: "Focus-Cool (6000K)",
+          severity: "high"
+        };
+      } else if (co2 > 600 || noise > 55) {
+        return {
+          status: "Moderate Activity",
+          badgeColor: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+          hvac: "Moderate Airflow",
+          lighting: "Daylight (4500K)",
+          severity: "medium"
+        };
+      }
+      return {
+        status: "Optimal",
+        badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+        hvac: "Eco-Mode",
+        lighting: "Standard (4000K)",
+        severity: "low"
+      };
+    };
+
+    function FlowZoneDashboard() {
+      const [selectedBuilding, setSelectedBuilding] = useState("ALL");
+      const [rooms, setRooms] = useState(INITIAL_ROOMS);
+      const [roomHistories, setRoomHistories] = useState({});
+      const [activeChartRoom, setActiveChartRoom] = useState("A-103");
+      const [toast, setToast] = useState(null);
+      const [isSimulating, setIsSimulating] = useState(true);
+      const [backendStatus, setBackendStatus] = useState("Local Simulation Engine");
+
+      const showToast = (message, type = "info") => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      useEffect(() => {
+        const initialHist = {};
+        const now = Date.now();
+        INITIAL_ROOMS.forEach(room => {
+          const history = [];
+          for (let i = 10; i >= 0; i--) {
+            const timeStr = new Date(now - i * 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            history.push({
+              time: timeStr,
+              co2: Math.max(400, Math.min(1200, room.co2_ppm + (Math.random() * 60 - 30))),
+              noise: Math.max(30, Math.min(85, room.noise_db + (Math.random() * 8 - 4)))
+            });
+          }
+          initialHist[room.room_id] = history;
+        });
+        setRoomHistories(initialHist);
+      }, []);
+
+      useEffect(() => {
+        if (!isSimulating) return;
+
+        const interval = setInterval(async () => {
+          try {
+            const res = await fetch('http://localhost:3001/api/rooms');
+            if (res.ok) {
+              const apiData = await res.json();
+              if (Array.isArray(apiData) && apiData.length > 0) {
+                setRooms(apiData);
+                setBackendStatus("Live Node.js API");
+                return;
+              }
+            }
+          } catch (err) {
+            setBackendStatus("Local Simulation Engine");
+          }
+
+          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          
+          setRooms(prevRooms => {
+            return prevRooms.map(room => {
+              if (room.isManual) return room;
+
+              const co2Delta = (Math.random() * 30 - 14);
+              const noiseDelta = (Math.random() * 4 - 1.8);
+              
+              const newCo2 = Math.round(Math.max(400, Math.min(1300, room.co2_ppm + co2Delta)));
+              const newNoise = Math.round(Math.max(32, Math.min(88, room.noise_db + noiseDelta)));
+              const cond = evaluateCondition(newCo2, newNoise);
+
+              return {
+                ...room,
+                co2_ppm: newCo2,
+                noise_db: newNoise,
+                hvac_status: cond.hvac,
+                lighting_mode: cond.lighting,
+                room_status: cond.status
+              };
+            });
+          });
+
+          setRoomHistories(prev => {
+            const updated = { ...prev };
+            rooms.forEach(r => {
+              const curHist = updated[r.room_id] ? [...updated[r.room_id]] : [];
+              curHist.push({
+                time: nowStr,
+                co2: r.co2_ppm,
+                noise: r.noise_db
+              });
+              if (curHist.length > 15) curHist.shift();
+              updated[r.room_id] = curHist;
+            });
+            return updated;
+          });
+
+        }, 3000);
+
+        return () => clearInterval(interval);
+      }, [isSimulating, rooms]);
+
+      useEffect(() => {
+        lucide.createIcons();
+      }, [rooms, activeChartRoom, toast, selectedBuilding]);
+
+      const triggerOverride = useCallback(async (roomId, mode) => {
+        let actionPayload = {};
+        if (mode === "focus") {
+          actionPayload = {
+            hvac_status: "Boosted Fresh Air (Override)",
+            lighting_mode: "Deep Focus (6500K)",
+            room_status: "Manual Focus Mode Active",
+            isManual: true
+          };
+          showToast(`⚡ Manual Deep Focus activated for ${roomId}`, "success");
+        } else {
+          actionPayload = {
+            hvac_status: "Gentle Airflow (Override)",
+            lighting_mode: "Warm Ambient (3000K)",
+            room_status: "Manual Relax Mode Active",
+            isManual: true
+          };
+          showToast(`🌙 Manual Relax Mode activated for ${roomId}`, "info");
+        }
+
+        setRooms(prev => prev.map(r => r.room_id === roomId ? { ...r, ...actionPayload } : r));
+
+        try {
+          await fetch(`http://localhost:3001/api/rooms/${roomId}/override`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: mode === "focus" ? "focus_mode" : "relax_mode" })
+          });
+        } catch (e) {
+          // Fallback handled locally
+        }
+
+        setTimeout(() => {
+          setRooms(prev => prev.map(r => r.room_id === roomId ? { ...r, isManual: false } : r));
+        }, 15000);
+      }, []);
+
+      const filteredRooms = useMemo(() => {
+        if (selectedBuilding === "ALL") return rooms;
+        return rooms.filter(r => r.building === selectedBuilding);
+      }, [rooms, selectedBuilding]);
+
+      const stats = useMemo(() => {
+        const total = rooms.length;
+        const highAlerts = rooms.filter(r => r.co2_ppm > 800 || r.noise_db > 65).length;
+        const avgCo2 = Math.round(rooms.reduce((acc, r) => acc + r.co2_ppm, 0) / total);
+        const ecoRooms = rooms.filter(r => r.hvac_status.includes("Eco")).length;
+        const ecoPercent = Math.round((ecoRooms / total) * 100);
+
+        return { total, highAlerts, avgCo2, ecoPercent };
+      }, [rooms]);
+
+      return (
+        <div className="min-h-screen p-4 md:p-8 relative">
+          
+          {/* Toast Notification Header */}
+          {toast && (
+            <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-2xl border backdrop-blur-md flex items-center space-x-3 transition-all duration-300 ${
+              toast.type === "success" ? "bg-emerald-900/90 border-emerald-500/50 text-emerald-200" :
+              toast.type === "info" ? "bg-cyan-900/90 border-cyan-500/50 text-cyan-200" :
+              "bg-rose-900/90 border-rose-500/50 text-rose-200"
+            }`}>
+              <i data-lucide="sparkles" className="w-5 h-5"></i>
+              <span className="font-medium text-sm">{toast.message}</span>
+            </div>
+          )}
+
+          {/* Header */}
+          <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+            <div>
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-lg shadow-cyan-500/20">
+                  <i data-lucide="activity" className="w-7 h-7 text-slate-950 stroke-[2.5]"></i>
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                    FlowZone Control Center
+                  </h1>
+                  <p className="text-xs md:text-sm text-slate-400 font-medium">
+                    Automated Campus Indoor Air Quality &amp; Focus Optimization Engine
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="font-mono text-slate-400">{backendStatus}</span>
+              </div>
+
+              <button
+                onClick={() => setIsSimulating(!isSimulating)}
+                className={`px-3.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center space-x-2 transition-all ${
+                  isSimulating 
+                    ? "bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800" 
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                }`}
+              >
+                <i data-lucide="refresh-cw" className={`w-3.5 h-3.5 ${isSimulating ? "animate-spin" : ""}`}></i>
+                <span>{isSimulating ? "Pause Simulation" : "Resume Simulation"}</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Key Metrics */}
+          <section className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Rooms</span>
+                <i data-lucide="building-2" className="w-4 h-4 text-cyan-400"></i>
+              </div>
+              <div className="text-2xl font-bold text-white">{stats.total}</div>
+              <p className="text-[11px] text-slate-500 mt-1">Across 4 Campus Blocks</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Avg CO₂ Level</span>
+                <i data-lucide="wind" className="w-4 h-4 text-emerald-400"></i>
+              </div>
+              <div className="text-2xl font-bold text-emerald-400">{stats.avgCo2} <span className="text-xs text-slate-400 font-normal">PPM</span></div>
+              <p className="text-[11px] text-slate-500 mt-1">Optimal Target: &lt; 600 PPM</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">High Alert Zones</span>
+                <i data-lucide="shield-alert" className="w-4 h-4 text-rose-400"></i>
+              </div>
+              <div className={`text-2xl font-bold ${stats.highAlerts > 0 ? "text-rose-400" : "text-slate-300"}`}>
+                {stats.highAlerts}
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Requiring HVAC boost</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">HVAC Eco-Efficiency</span>
+                <i data-lucide="zap" className="w-4 h-4 text-amber-400"></i>
+              </div>
+              <div className="text-2xl font-bold text-amber-400">{stats.ecoPercent}%</div>
+              <p className="text-[11px] text-slate-500 mt-1">Rooms in Eco-Power Mode</p>
+            </div>
+          </section>
+
+          {/* Filter Bar */}
+          <section className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center space-x-2">
+                <i data-lucide="building-2" className="w-4 h-4 text-cyan-400"></i>
+                <span>Campus Location Filter</span>
+              </h2>
+              <span className="text-xs text-slate-500 font-mono">Showing {filteredRooms.length} rooms</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2 p-1.5 bg-slate-900/80 border border-slate-800 rounded-2xl w-fit">
+              {["ALL", "A BLOCK", "B BLOCK", "C BLOCK", "LIBRARY"].map(building => (
+                <button
+                  key={building}
+                  onClick={() => setSelectedBuilding(building)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    selectedBuilding === building
+                      ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+                  }`}
+                >
+                  {building}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Main Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Rooms Grid */}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {filteredRooms.map(room => {
+                const cond = evaluateCondition(room.co2_ppm, room.noise_db);
+                const isSelectedForChart = activeChartRoom === room.room_id;
+
+                return (
+                  <div 
+                    key={room.room_id} 
+                    className={`p-5 rounded-2xl border transition-all duration-300 relative flex flex-col justify-between backdrop-blur-md ${
+                      isSelectedForChart 
+                        ? "bg-slate-900/90 border-cyan-500/60 shadow-xl shadow-cyan-500/10 ring-1 ring-cyan-500/30" 
+                        : "bg-slate-900/50 border-slate-800 hover:border-slate-700"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">{room.building}</span>
+                          <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+                            <span>{room.room_id}</span>
+                            {room.isManual && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                Override
+                              </span>
+                            )}
+                          </h3>
+                        </div>
+
+                        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${cond.badgeColor}`}>
+                          {room.room_status || cond.status}
+                        </span>
+                      </div>
+
+                      {/* Metrics Cards */}
+                      <div className="grid grid-cols-3 gap-2 my-4">
+                        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                          <div className="flex items-center text-[10px] text-slate-400 space-x-1 mb-1">
+                            <i data-lucide="wind" className="w-3 h-3 text-cyan-400"></i>
+                            <span>CO₂</span>
+                          </div>
+                          <div className={`text-sm font-bold ${
+                            room.co2_ppm > 800 ? "text-rose-400" : room.co2_ppm > 600 ? "text-amber-400" : "text-emerald-400"
+                          }`}>
+                            {Math.round(room.co2_ppm)} <span className="text-[10px] text-slate-500">ppm</span>
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                          <div className="flex items-center text-[10px] text-slate-400 space-x-1 mb-1">
+                            <i data-lucide="volume-2" className="w-3 h-3 text-indigo-400"></i>
+                            <span>Noise</span>
+                          </div>
+                          <div className={`text-sm font-bold ${
+                            room.noise_db > 65 ? "text-rose-400" : room.noise_db > 55 ? "text-amber-400" : "text-emerald-400"
+                          }`}>
+                            {Math.round(room.noise_db)} <span className="text-[10px] text-slate-500">dB</span>
+                          </div>
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                          <div className="flex items-center text-[10px] text-slate-400 space-x-1 mb-1">
+                            <i data-lucide="users" className="w-3 h-3 text-cyan-400"></i>
+                            <span>People</span>
+                          </div>
+                          <div className="text-sm font-bold text-slate-200">
+                            {room.occupancy_count} <span className="text-[10px] text-slate-500">/ {room.max_occupancy || 30}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-slate-800/60 text-xs">
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span className="flex items-center space-x-1.5 text-slate-400 text-[11px]">
+                            <i data-lucide="wind" className={`w-3.5 h-3.5 ${room.hvac_status.includes("Boosted") ? "text-cyan-400 animate-spin" : "text-slate-500"}`}></i>
+                            <span>HVAC Intake:</span>
+                          </span>
+                          <span className="font-semibold text-slate-200 text-[11px]">{room.hvac_status}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span className="flex items-center space-x-1.5 text-slate-400 text-[11px]">
+                            <i data-lucide="lightbulb" className="w-3.5 h-3.5 text-amber-400"></i>
+                            <span>Lighting Kelvin:</span>
+                          </span>
+                          <span className="font-semibold text-slate-200 text-[11px]">{room.lighting_mode}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Controls */}
+                    <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                      <div className="flex space-x-1.5 w-full">
+                        <button
+                          onClick={() => triggerOverride(room.room_id, "focus")}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] font-semibold transition-all flex items-center justify-center space-x-1"
+                        >
+                          <i data-lucide="zap" className="w-3 h-3"></i>
+                          <span>Focus</span>
+                        </button>
+
+                        <button
+                          onClick={() => triggerOverride(room.room_id, "relax")}
+                          className="flex-1 py-1.5 px-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[11px] font-semibold transition-all flex items-center justify-center space-x-1"
+                        >
+                          <i data-lucide="sparkles" className="w-3 h-3"></i>
+                          <span>Relax</span>
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => setActiveChartRoom(room.room_id)}
+                        className={`p-1.5 rounded-lg border transition-all ${
+                          isSelectedForChart
+                            ? "bg-cyan-500 text-slate-950 border-cyan-400"
+                            : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                        }`}
+                        title="Inspect Historical Analytics"
+                      >
+                        <i data-lucide="trending-up" className="w-4 h-4"></i>
+                      </button>
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Live Chart Section */}
+            <div className="p-6 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-md flex flex-col justify-between h-fit sticky top-8">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase">Live Telemetry Analytics</span>
+                    <h3 className="text-xl font-bold text-white flex items-center space-x-2">
+                      <span>Room: {activeChartRoom}</span>
+                    </h3>
+                  </div>
+                  <div className="p-2 rounded-xl bg-slate-800 text-slate-400">
+                    <i data-lucide="activity" className="w-5 h-5 text-cyan-400"></i>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400 mb-6">
+                  Real-time trend analysis of CO₂ concentration (ppm) and acoustic noise levels over the last 60 seconds.
+                </p>
+
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={roomHistories[activeChartRoom] || []}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="time" stroke="#64748b" fontSize={10} tickLine={false} />
+                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} domain={[300, 1200]} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                        itemStyle={{ color: '#cbd5e1' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="co2" 
+                        name="CO₂ (ppm)" 
+                        stroke="#22d3ee" 
+                        strokeWidth={2.5} 
+                        dot={false}
+                        activeDot={{ r: 5, fill: "#22d3ee" }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="noise" 
+                        name="Noise (dB)" 
+                        stroke="#818cf8" 
+                        strokeWidth={1.5} 
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="flex items-center justify-center space-x-6 mt-4 text-xs">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-3 h-3 rounded-full bg-cyan-400 inline-block"></span>
+                    <span className="text-slate-300">CO₂ (PPM)</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="w-3 h-3 rounded-full bg-indigo-400 inline-block"></span>
+                    <span className="text-slate-300">Noise Level (dB)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guidelines Info */}
+              <div className="mt-8 p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-2">
+                <div className="flex items-center space-x-1.5 font-semibold text-slate-300">
+                  <i data-lucide="info" className="w-4 h-4 text-cyan-400"></i>
+                  <span>FlowZone Logic Engine Guidelines</span>
+                </div>
+                <ul className="text-slate-400 space-y-1 list-disc list-inside">
+                  <li><strong className="text-emerald-400">Normal</strong>: CO₂ &le; 600 ppm | Noise &le; 55 dB (Eco-Mode)</li>
+                  <li><strong className="text-amber-400">Moderate</strong>: CO₂ &gt; 600 ppm | Noise &gt; 55 dB (Moderate Airflow)</li>
+                  <li><strong className="text-rose-400">High Alert</strong>: CO₂ &gt; 800 ppm | Noise &gt; 65 dB (Fresh Air Boost &amp; 6000K Lighting)</li>
+                </ul>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<FlowZoneDashboard />);
+  </script>
+</body>
+</html>
