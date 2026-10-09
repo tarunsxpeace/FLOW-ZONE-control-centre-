@@ -12,7 +12,7 @@
 
 ## 📌 Problem Statement
 High concentrations of $\text{CO}_2$ (>800 ppm) in enclosed campus study spaces cause drowsiness, reduced cognitive function, and headaches. Coupled with fluctuating ambient noise levels, students frequently experience rapid burnout and poor focus without realizing environmental factors are responsible.
-
+https://share.gemini.google/7gLYMApptCYg
 ## 💡 The FlowZone Solution
 **FlowZone** transforms passive study rooms into dynamic, self-healing environments. By continuously monitoring air quality ($\text{CO}_2$), acoustic levels (dB), and occupancy in real-time:
 1. It detects high stress or poor air conditions automatically.
